@@ -4,39 +4,38 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'react-native';
 
 import AuthScreen from '../screens/authScreen';
-import DashboardScreen from '../screens/DashboardScreen';
-import ShiftLogScreen from '../screens/ShiftLogScreen';
-import StoreLocationsScreen from '../screens/StoreLocationsScreen';
-import FeedbackScreen from '../screens/FeedbackScreen';
+import DashboardScreen from '../screens/dashboardScreen';
 
 const MainStack = createStackNavigator();
 const AuthStack = createStackNavigator();
 
-const AuthNavigator = () => {
-  return (
-    
-      
-    
-  );
-};
-
+// Screens shown after login
 const MainNavigator = () => {
   return (
-    
-      
-      
-      
-      
-    
+    <MainStack.Navigator initialRouteName="Dashboard">
+      <MainStack.Screen name="Dashboard" component={DashboardScreen} />
+    </MainStack.Navigator>
   );
 };
 
+// Screens shown before login
+const AuthNavigator = () => {
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Auth" component={AuthScreen} />
+    </AuthStack.Navigator>
+  );
+};
+
+// Top-level navigator that chooses Auth or Main based on auth status
 const AppNavigator = ({ isAuth }) => {
   return (
-    
-      
-      {isAuth ?  : }
-    
+    <>
+      <StatusBar barStyle="dark-content" />
+      <NavigationContainer>
+        {isAuth ? <MainNavigator /> : <AuthNavigator />}
+      </NavigationContainer>
+    </>
   );
 };
 

@@ -1,4 +1,4 @@
-import db from '../database/schema';
+import db from '../database/schema.js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 

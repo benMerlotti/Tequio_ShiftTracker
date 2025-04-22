@@ -1,8 +1,12 @@
-import React from 'react';
+// App.js
+import React, { useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
-import { initDatabase } from './src/database/schema';
+import { initDatabase } from './src/database/schema.js';
 import AppNavigator from './src/navigation/appNavigator';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+
+// Import the test database function - no longer needed for main app
+// import { testDatabase } from './TestSchema';
 
 const AppContent = () => {
   const { isLoading, isAuthenticated } = useAuth();
@@ -20,10 +24,11 @@ const AppContent = () => {
 };
 
 export default function App() {
-  const [dbInitialized, setDbInitialized] = React.useState(false);
-  const [initError, setInitError] = React.useState(null);
-
-  React.useEffect(() => {
+  const [dbInitialized, setDbInitialized] = useState(false);
+  const [initError, setInitError] = useState(null);
+  const [showTest, setShowTest] = useState(false); // Set to false to run your main app
+  
+  useEffect(() => {
     const setupDatabase = async () => {
       try {
         await initDatabase();
@@ -36,6 +41,11 @@ export default function App() {
     
     setupDatabase();
   }, []);
+
+  // This condition will be skipped now that showTest is false
+  if (showTest) {
+    return <TestDatabase />;
+  }
 
   if (!dbInitialized) {
     return (
