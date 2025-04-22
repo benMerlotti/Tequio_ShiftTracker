@@ -5,7 +5,20 @@ const db = SQLite.openDatabase('tequila.db');
 export const initDatabase = () => {
   return new Promise((resolve, reject) => {
     db.transaction(tx => {
-      // Employee table
+
+      // In your schema.js file, add this to your initDatabase function
+
+      // User authentication table
+      tx.executeSql(
+        `CREATE TABLE IF NOT EXISTS users (
+          user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          employee_id INTEGER,
+          FOREIGN KEY (employee_id) REFERENCES employee (employee_id)
+        );`
+      );
+            // Employee table
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS employee (
           employee_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,6 +72,7 @@ export const initDatabase = () => {
           FOREIGN KEY (shift_log_id) REFERENCES shift_log (shift_log_id)
         );`
       );
+      
     }, reject, resolve);
   });
 };
