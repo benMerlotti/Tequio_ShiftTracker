@@ -43,13 +43,24 @@ class Database {
     }
     
     try {
-      const columns = Object.keys(data).join(', ');
-      const placeholders = Object.keys(data).map(() => '?').join(', ');
-      const values = Object.values(data);
+      // Use direct string interpolation as we tried before
+      const entries = Object.entries(data);
+      const columns = entries.map(([key]) => key).join(', ');
+      const values = entries.map(([_, value]) => 
+        typeof value === 'string' ? `'${value}'` : value
+      ).join(', ');
       
-      const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-      const result = await this.db.execAsync(sql, values);
-      return result.insertId;
+      const sql = `INSERT INTO ${table} (${columns}) VALUES (${values})`;
+      console.log('Direct SQL query:', sql);
+      
+      // Execute the statement
+      await this.db.execAsync(sql);
+      
+      // Instead of relying on a return value, query the last inserted ID
+      const result = await this.db.getFirstAsync('SELECT last_insert_rowid() as id');
+      console.log('Last inserted ID:', result);
+      
+      return result.id;
     } catch (error) {
       console.error('Insert error:', error);
       throw error;

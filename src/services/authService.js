@@ -13,62 +13,63 @@ const hashPassword = async (password) => {
 
 // Register a new user
 export const registerUser = async (userData) => {
+  console.log('Full userData received:', userData);
   const { email, password, firstName, lastName, phoneNumber, role } = userData;
+  console.log('After destructuring - firstName:', firstName);
+  console.log('After destructuring - lastName:', lastName);
   
-  // Hash the password
   const passwordHash = await hashPassword(password);
-  
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      // First create the employee record
-      tx.executeSql(
-        `INSERT INTO employee (first_name, last_name, email, phone_number, role) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [firstName, lastName, email, phoneNumber, role],
-        (_, { insertId: employeeId }) => {
-          // Then create the user account linked to this employee
-          tx.executeSql(
-            `INSERT INTO users (email, password_hash, employee_id) 
-             VALUES (?, ?, ?)`,
-            [email, passwordHash, employeeId],
-            (_, { insertId: userId }) => resolve({ userId, employeeId }),
-            (_, error) => reject(error)
-          );
-        },
-        (_, error) => reject(error)
-      );
-    });
-  });
+
+  try {
+    const employeeData = {
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      phone_number: phoneNumber,
+      role
+    };
+    console.log('employeeData prepared for insertion:', employeeData);
+    
+    const employeeId = await db.insert('employee', employeeData);
+    // Rest of your code...
+  } catch (error) {
+    console.error('Detailed registration error:', error);
+    throw error;
+  }
 };
 
+
+
 // Login user
+// In your authService.js
 export const loginUser = async (email, password) => {
   const passwordHash = await hashPassword(password);
   
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        `SELECT u.user_id, u.employee_id, e.first_name, e.last_name, e.role
-         FROM users u
-         JOIN employee e ON u.employee_id = e.employee_id
-         WHERE u.email = ? AND u.password_hash = ?`,
-        [email, passwordHash],
-        (_, { rows }) => {
-          if (rows.length > 0) {
-            const userData = rows.item(0);
-            // Store user data in AsyncStorage for persistent login
-            AsyncStorage.setItem('userData', JSON.stringify(userData))
-              .then(() => resolve(userData))
-              .catch(error => reject(error));
-          } else {
-            reject(new Error('Invalid email or password'));
-          }
-        },
-        (_, error) => reject(error)
-      );
-    });
-  });
+  try {
+    // Query both the users and employee tables to get full user data
+    const userData = await db.query(`
+      SELECT u.user_id, u.employee_id, e.first_name, e.last_name, e.role
+      FROM users u
+      JOIN employee e ON u.employee_id = e.employee_id
+      WHERE u.email = ? AND u.password_hash = ?
+    `, [email, passwordHash]);
+    
+    if (userData && userData.length > 0) {
+      const user = userData[0];
+      console.log('Login successful. User data:', user);
+      
+      // Store complete user data
+      await AsyncStorage.setItem('userData', JSON.stringify(user));
+      return user;
+    } else {
+      throw new Error('Invalid email or password');
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
 };
+
 
 // Check if user is logged in
 export const checkAuthStatus = async () => {

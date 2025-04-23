@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Add this import
 import { checkAuthStatus, loginUser, registerUser, logoutUser } from '../services/authService';
 
 const AuthContext = createContext();
@@ -11,16 +12,34 @@ export const AuthProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    // Check if user is logged in on app start
     const loadUser = async () => {
-      const userData = await checkAuthStatus();
-      setAuthState({
-        user: userData,
-        isLoading: false,
-        isAuthenticated: userData !== null,
-      });
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          const user = JSON.parse(userData);
+          console.log('Loaded user from storage:', user);
+          setAuthState({
+            user,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+        } else {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }
     };
-
+    
     loadUser();
   }, []);
 
@@ -42,12 +61,26 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = async (userData) => {
     try {
-      await registerUser(userData);
+      const user = await registerUser(userData);
+      setAuthState({
+        user,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+      console.log('Registering user with:', {
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        role
+      });
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   };
+  
 
   // Logout function
   const logout = async () => {
