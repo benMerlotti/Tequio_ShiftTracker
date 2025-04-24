@@ -7,13 +7,15 @@ import {
   ActivityIndicator, 
   Alert,
   Modal,
-  FlatList
+  FlatList,
+  Button
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import db from '../database/schema';
+import AuthScreen from './authScreen';
 
 const DashboardScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   console.log('Current user data:', user);
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState([]);
@@ -34,6 +36,22 @@ const DashboardScreen = ({ navigation }) => {
     
     loadStores();
   }, []);
+
+  useEffect(() => {
+    const checkUserExists = async () => {
+      if (!user || !user.employee_id) return;
+  
+      const result = await db.query(`SELECT * FROM employee WHERE employee_id = ?`, [user.employee_id]);
+  
+      if (result.length === 0) {
+        console.warn('User not found in DB. Logging out.');
+        await logout();
+      }
+    };
+  
+    checkUserExists();
+  }, []);
+  
 
   const startShift = async () => {
     // Check if store is selected
@@ -129,9 +147,17 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+        <TouchableOpacity
+  style={{ marginTop: 20 }}
+  onPress={() => logout()}
+>
+  <Text style={{ color: 'red' }}>Logout</Text>
+</TouchableOpacity>
+
       <Text style={styles.welcomeText}>
         Welcome, {user?.first_name || 'Ambassador'}!
       </Text>
+      
       
       {/* Store selection display */}
       <TouchableOpacity 
