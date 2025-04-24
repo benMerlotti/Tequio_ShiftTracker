@@ -1,108 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import * as Location from 'expo-location';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert,
+  Modal,
+  FlatList
+} from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import db from '../database/schema';
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useAuth();
-  console.log('Current user data:', user); // Debug log
+  console.log('Current user data:', user);
   const [loading, setLoading] = useState(false);
-  const [locationError, setLocationError] = useState(null);
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState(null);
+  const [storeModalVisible, setStoreModalVisible] = useState(false);
 
-  // Request location permissions on component mount
+  // Load stores from database when component mounts
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationError('Location permission is required for this app');
+    const loadStores = async () => {
+      try {
+        const storeData = await db.query('SELECT * FROM store_location');
+        console.log('Loaded stores:', storeData);
+        setStores(storeData);
+      } catch (error) {
+        console.error('Error loading stores:', error);
       }
-    })();
+    };
+    
+    loadStores();
   }, []);
 
   const startShift = async () => {
+    // Check if store is selected
+    if (!selectedStore) {
+      setStoreModalVisible(true);
+      return;
+    }
+    
     setLoading(true);
-    setLocationError(null);
     
     try {
-      // Check if permission is granted
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-        if (newStatus !== 'granted') {
-          setLocationError('Permission to access location was denied');
-          setLoading(false);
-          
-          // Alert the user and proceed without location
-          Alert.alert(
-            'Location Required',
-            'Without location access, we cannot determine which store you are at. Would you like to proceed manually?',
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => setLoading(false)
-              },
-              {
-                text: 'Continue Manually',
-                onPress: () => startShiftWithoutLocation()
-              }
-            ]
-          );
-          return;
-        }
-      }
-
-      // Get current location with timeout
-      const location = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Location timeout')), 10000)
-        )
-      ]);
-      
-      console.log('Current location:', location);
-      
-      // Find nearest store based on coordinates
-      // For now, just use a placeholder store ID
-      const storeId = 1; // Replace with proper store lookup logic
-      
-      createShiftRecord(storeId);
-      
+      createShiftRecord(selectedStore.store_id);
     } catch (error) {
       console.error('Error starting shift:', error);
-      setLocationError('Could not get your location: ' + error.message);
-      
-      // Ask user if they want to proceed manually
-      Alert.alert(
-        'Location Error',
-        'Could not determine your location. Would you like to proceed manually?',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => setLoading(false)
-          },
-          {
-            text: 'Continue Manually',
-            onPress: () => startShiftWithoutLocation()
-          }
-        ]
-      );
-    }
-  };
-
-  const startShiftWithoutLocation = async () => {
-    try {
-      // For now, use a default store ID 
-      // In a real app, you might want to show a store picker here
-      const storeId = 1;
-      createShiftRecord(storeId);
-    } catch (error) {
-      console.error('Error starting shift manually:', error);
-      setLocationError('Error starting shift: ' + error.message);
+      Alert.alert('Error', 'Could not start shift: ' + error.message);
       setLoading(false);
     }
   };
@@ -162,11 +108,24 @@ const DashboardScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error creating shift record:', error);
-      setLocationError('Error creating shift: ' + error.message);
+      Alert.alert('Error', 'Error creating shift: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const renderStoreItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.storeItem}
+      onPress={() => {
+        setSelectedStore(item);
+        setStoreModalVisible(false);
+      }}
+    >
+      <Text style={styles.storeName}>{item.store_name}</Text>
+      <Text style={styles.storeAddress}>{item.store_address}, {item.store_city}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
@@ -174,10 +133,23 @@ const DashboardScreen = ({ navigation }) => {
         Welcome, {user?.first_name || 'Ambassador'}!
       </Text>
       
+      {/* Store selection display */}
+      <TouchableOpacity 
+        style={styles.storeSelector}
+        onPress={() => setStoreModalVisible(true)}
+      >
+        <Text style={styles.storeSelectorLabel}>
+          {selectedStore ? selectedStore.store_name : 'Select a store to begin'}
+        </Text>
+      </TouchableOpacity>
+      
       <TouchableOpacity
-        style={styles.startButton}
+        style={[
+          styles.startButton,
+          !selectedStore && styles.disabledButton
+        ]}
         onPress={startShift}
-        disabled={loading}
+        disabled={loading || !selectedStore}
       >
         {loading ? (
           <ActivityIndicator color="white" size="large" />
@@ -186,16 +158,44 @@ const DashboardScreen = ({ navigation }) => {
         )}
       </TouchableOpacity>
       
-      {locationError && (
-        <Text style={styles.errorText}>{locationError}</Text>
-      )}
-      
       <TouchableOpacity
         style={styles.exploreButton}
         onPress={() => navigation.navigate('DatabaseExplorer')}
       >
         <Text style={styles.exploreButtonText}>Database Explorer</Text>
       </TouchableOpacity>
+      
+      {/* Store selection modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={storeModalVisible}
+        onRequestClose={() => setStoreModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Store Location</Text>
+            
+            {stores.length === 0 ? (
+              <Text style={styles.noStores}>No stores found. Please add stores to the database.</Text>
+            ) : (
+              <FlatList
+                data={stores}
+                renderItem={renderStoreItem}
+                keyExtractor={item => item.store_id.toString()}
+                style={styles.storeList}
+              />
+            )}
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setStoreModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -211,7 +211,24 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 40,
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  storeSelector: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  storeSelectorLabel: {
+    fontSize: 16,
+    color: '#333',
     textAlign: 'center',
   },
   startButton: {
@@ -227,15 +244,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  disabledButton: {
+    backgroundColor: '#B0C4DE',
+  },
   startButtonText: {
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  errorText: {
-    color: 'red',
-    marginTop: 20,
-    textAlign: 'center',
   },
   exploreButton: {
     marginTop: 40,
@@ -243,6 +258,56 @@ const styles = StyleSheet.create({
   },
   exploreButtonText: {
     color: '#007BFF',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  storeList: {
+    maxHeight: 300,
+  },
+  storeItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  storeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  storeAddress: {
+    fontSize: 14,
+    color: '#666',
+  },
+  noStores: {
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 20,
+  },
+  cancelButton: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#333',
   },
 });
 

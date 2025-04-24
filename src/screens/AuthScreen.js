@@ -103,7 +103,7 @@ const AuthScreen = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.formContainer}>
-          <Text style={styles.logo}>Tequila Shift Log</Text>
+          <Text style={styles.logo}>Tequio App</Text>
           <Text style={styles.title}>{isLogin ? 'Login' : 'Sign Up'}</Text>
           
           {!isLogin && (
