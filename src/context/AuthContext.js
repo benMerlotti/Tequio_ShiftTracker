@@ -58,28 +58,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Register function
-  const register = async (userData) => {
-    try {
-      const user = await registerUser(userData);
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-      console.log('Registering user with:', {
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        role
-      });
-      
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
+// Register function
+const register = async (userData) => {
+  try {
+    console.log('Registering user with userData:', userData);
+    
+    const user = await registerUser(userData);
+    setAuthState({
+      user,
+      isLoading: false,
+      isAuthenticated: true,
+    });
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
   
 
   // Logout function
